@@ -41,7 +41,7 @@ def save_graph(graph, year, output_dir):
 
 def main():
     data_path = r"C:\Users\purav\OneDrive\Desktop\STGNN\Spatio-Temporal-Graph-Neural-Networks\Processed Data\climate_data.csv"
-    output_dir = "processed_graphs"
+    output_dir = "Spatio-Temporal-Graph-Neural-Networks\processed_graphs"
 
     df = load_data(data_path)
     years = df['year'].unique()

@@ -15,7 +15,7 @@ class LSTMModel(nn.Module):
         return output
         
 
-graph_dir = "graph_embeddings"
+graph_dir = "Spatio-Temporal-Graph-Neural-Networks\graph_embeddings"
 
 def load_embeddings():
     embeddings = {}

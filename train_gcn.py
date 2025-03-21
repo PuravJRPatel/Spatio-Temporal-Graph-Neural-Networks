@@ -47,11 +47,12 @@ def save_embeddings(output, year, embeddings_dir):
     print(f"Embeddings saved for {year}")
 
 def main():
-    graph_dir = "processed_graphs"
-    embeddings_dir = "graph_embeddings"
+    graph_dir = "Spatio-Temporal-Graph-Neural-Networks\processed_graphs"
+    embeddings_dir = "Spatio-Temporal-Graph-Neural-Networks\graph_embeddings"
     
     hidden_dim = 20
     output_dim = 2
+
     num_epochs = 400
     learning_rate = 0.01
 
