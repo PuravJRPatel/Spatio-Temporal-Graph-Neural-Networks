@@ -4,10 +4,10 @@ from build_graph import load_data, build_graph, save_graph
 from train_gcn import load_graph, train_model, save_embeddings
 from lstm_prediction import load_embeddings, predict_future
 
-data_path = "Spatio-Temporal-Graph-Neural-Networks\Processed Data\climate_data.csv"
-graph_dir = "Spatio-Temporal-Graph-Neural-Networks\processed_graphs"
-embeddings_dir = "Spatio-Temporal-Graph-Neural-Networks\graph_embeddings"
-target_year = 2030  
+data_path = "Processed Data/climate_data.csv"
+graph_dir = "processed_graphs"
+embeddings_dir = "graph_embeddings"
+target_year = 2024 
 
 
 if not os.path.exists(graph_dir) or len(os.listdir(graph_dir)) == 0:

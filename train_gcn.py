@@ -36,7 +36,7 @@ def train_model(graph, hidden_dim, output_dim, num_epochs, learning_rate):
         loss.backward()
         optimizer.step()
 
-        if epoch%20 == 0:
+        if epoch%100 == 0:
             print(f"Epoch {epoch}: Loss = {loss.item():.4f}")
 
     return model,output
@@ -47,13 +47,13 @@ def save_embeddings(output, year, embeddings_dir):
     print(f"Embeddings saved for {year}")
 
 def main():
-    graph_dir = "Spatio-Temporal-Graph-Neural-Networks\processed_graphs"
-    embeddings_dir = "Spatio-Temporal-Graph-Neural-Networks\graph_embeddings"
+    graph_dir = "processed_graphs"
+    embeddings_dir = "graph_embeddings"
     
-    hidden_dim = 20
+    hidden_dim = 32
     output_dim = 2
 
-    num_epochs = 400
+    num_epochs = 1000
     learning_rate = 0.01
 
     for year in range(2000, 2024):
