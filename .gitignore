@@ -172,3 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+Spatio-Temporal-Graph-Neural-Networks/graph_embeddings
+Spatio-Temporal-Graph-Neural-Networks/Processed Data
+Spatio-Temporal-Graph-Neural-Networks/processed_graphs

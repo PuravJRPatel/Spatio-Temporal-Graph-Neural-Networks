@@ -10,7 +10,7 @@ class GCN(nn.Module):
         super(GCN, self).__init__()
         self.conv1 = GCNConv(in_channels, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, out_channels)
-    
+        
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index)
         x = F.relu(x)
@@ -50,13 +50,13 @@ def main():
     graph_dir = "processed_graphs"
     embeddings_dir = "graph_embeddings"
     
-    hidden_dim = 32
+    hidden_dim = 64
     output_dim = 2
 
     num_epochs = 1000
-    learning_rate = 0.01
+    learning_rate = 0.001
 
-    for year in range(2000, 2024):
+    for year in range(1980, 2024):
         print(f"\nTraining GCN for year {year}")
         graph = load_graph(year, graph_dir)
         _, output = train_model(graph, hidden_dim, output_dim, num_epochs, learning_rate)
