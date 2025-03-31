@@ -176,3 +176,6 @@ cython_debug/
 Spatio-Temporal-Graph-Neural-Networks/graph_embeddings
 Spatio-Temporal-Graph-Neural-Networks/Processed Data
 Spatio-Temporal-Graph-Neural-Networks/processed_graphs
+
+backend/data/loss_plots
+backend/data/graph_embeddings
