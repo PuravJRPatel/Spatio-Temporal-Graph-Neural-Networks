@@ -8,6 +8,12 @@ import os
 def load_data(filepath):
     return pd.read_csv(filepath)
 
+def normalize_features(df, columns):
+    for col in columns:
+        min_val, max_val = df[col].min(), df[col].max()
+        df[col] = (df[col] - min_val) / (max_val - min_val)
+    return df
+
 
 def build_graph(df_year, k=8):
 
@@ -45,6 +51,7 @@ def main():
     output_dir = "backend/data/processed_graphs"
 
     df = load_data(data_path)
+    df = normalize_features(df, ['rainfall', 'temperature'])
     years = df['year'].unique()
 
     for year in years:
@@ -57,4 +64,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

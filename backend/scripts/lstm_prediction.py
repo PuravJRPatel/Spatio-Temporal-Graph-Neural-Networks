@@ -5,45 +5,24 @@ import numpy as np
 import os
 import sys
 
-class ClimateAwarePredictionModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim=128, num_layers=3, climate_mode="standard"):
+class AdvancedPredictionModel(nn.Module):
+    def __init__(self, input_dim, hidden_dim=128, num_layers=3):
         super().__init__()
         
         self.input_projection = nn.Linear(input_dim, hidden_dim)
         
         self.short_term_lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers, 
-                                      batch_first=True, dropout=0.3)
+                                        batch_first=True, dropout=0.3)
         self.long_term_lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers, 
-                                     batch_first=True, dropout=0.3)
+                                       batch_first=True, dropout=0.3)
         
-        # Climate-aware parameters - adjustable based on selected mode
-        self.climate_mode = climate_mode
-        if climate_mode == "warming":
-            # Parameters calibrated for warming scenario
-            self.trend_magnitude = nn.Parameter(torch.tensor(0.5))  # Increased trend magnitude
-            self.variation_scale = nn.Parameter(torch.tensor(0.07))  # More variation
-            self.upward_bias = nn.Parameter(torch.tensor(0.2))  # Stronger upward bias
-            self.smoothing_factor = nn.Parameter(torch.tensor(0.6))  # Less smoothing for stronger trends
-        elif climate_mode == "extreme":
-            # Parameters calibrated for extreme weather scenario
-            self.trend_magnitude = nn.Parameter(torch.tensor(0.4))
-            self.variation_scale = nn.Parameter(torch.tensor(0.15))  # Much more variation
-            self.upward_bias = nn.Parameter(torch.tensor(0.15))
-            self.smoothing_factor = nn.Parameter(torch.tensor(0.5))  # Less smoothing
-        else:  # standard mode
-            # Default parameters similar to original
-            self.trend_magnitude = nn.Parameter(torch.tensor(0.3))
-            self.variation_scale = nn.Parameter(torch.tensor(0.05))
-            self.upward_bias = nn.Parameter(torch.tensor(0.1))
-            self.smoothing_factor = nn.Parameter(torch.tensor(0.7))
-        
-        # Seasonal component - for climate modeling
-        self.use_seasonal = True
-        self.seasonal_amplitude = nn.Parameter(torch.tensor(0.1))
-        
-        # Climate context features
+        self.trend_magnitude = nn.Parameter(torch.tensor(0.3))
+        self.variation_scale = nn.Parameter(torch.tensor(0.05))
+        self.upward_bias = nn.Parameter(torch.tensor(0.1))
+        self.smoothing_factor = nn.Parameter(torch.tensor(0.7))
+        # Corrected context embedding dimension
         self.context_embedding = nn.Sequential(
-            nn.Linear(12, hidden_dim * 2),  # Expanded to 12 features for climate context
+            nn.Linear(10, hidden_dim * 2),  # Output matches combined_out dimension
             nn.ReLU()
         )
         
@@ -57,7 +36,6 @@ class ClimateAwarePredictionModel(nn.Module):
         )
 
         self.register_buffer('prev_prediction', None)
-        self.register_buffer('year_counter', torch.tensor(0))
 
     def forward(self, x, context_features=None):
         x_projected = self.input_projection(x)
@@ -76,98 +54,22 @@ class ClimateAwarePredictionModel(nn.Module):
                 context_features = context_features.squeeze(1)
             
             context_embed = self.context_embedding(context_features)
-            combined_out += context_embed
+            combined_out += context_embed  
         
-        output = self.fc_layers(combined_out)
-        
-        # Apply climate-aware transformations
+        output = self.fc_layers(combined_out)        
         trend = (torch.randn_like(output) * 0.5 + 0.5) * self.trend_magnitude
-        
-        # Climate variability - more extreme in later years
-        if not self.training:
-            self.year_counter += 1
-            year_factor = torch.clamp(self.year_counter / 10.0, 0, 1.5)
-            variation = torch.randn_like(output) * self.variation_scale * (1 + year_factor * 0.2)
-        else:
-            variation = torch.randn_like(output) * self.variation_scale
-            
-        # Climate upward bias - stronger for temperature data
+        variation = torch.randn_like(output) * self.variation_scale
         upward = torch.abs(output) * self.upward_bias
-        
-        # Add seasonal component for climate modeling
-        seasonal = torch.zeros_like(output)
-        if self.use_seasonal and not self.training:
-            # Simple sinusoidal seasonality
-            seasonal = torch.sin(self.year_counter * 0.5) * self.seasonal_amplitude
-            
-        raw_prediction = output + trend + variation + upward + seasonal
-        
-        # Apply smoothing with climate-aware mechanism
+        raw_prediction = output + trend + variation + upward
         if self.prev_prediction is not None and self.training == False:
-            # Adjust smoothing based on climate mode
-            if self.climate_mode == "extreme":
-                # Less smoothing when predicting extreme events
-                local_smoothing = self.smoothing_factor * (0.7 + 0.3 * torch.rand_like(raw_prediction))
-            else:
-                local_smoothing = self.smoothing_factor
-                
-            smoothed_prediction = local_smoothing * raw_prediction + (1 - local_smoothing) * self.prev_prediction
-            self.prev_prediction = smoothed_prediction.detach()
+            smoothed_prediction = self.smoothing_factor * raw_prediction + (1 - self.smoothing_factor) * self.prev_prediction
+            self.prev_prediction = smoothed_prediction.detach()  # Update for next prediction
             return smoothed_prediction
         else:
+            # First prediction or during training
             if self.training == False:
-                self.prev_prediction = raw_prediction.detach()
+                self.prev_prediction = raw_prediction.detach()  
             return raw_prediction
-
-def climate_aware_loss(pred, target, temp_indices=None, rainfall_indices=None, climate_mode="standard"):
-    """
-    Climate-aware loss function that applies different penalties based on data type and expected climate trends
-    
-    Args:
-        pred: model predictions
-        target: target values
-        temp_indices: indices corresponding to temperature data
-        rainfall_indices: indices corresponding to rainfall data
-        climate_mode: type of climate scenario to model (standard, warming, extreme)
-    """
-    mse_loss = nn.MSELoss()
-    l1_loss = nn.L1Loss()
-    
-    # Reshape target to match prediction
-    target = target.reshape(pred.shape)
-    
-    # Base loss combining MSE and L1
-    base_loss = 0.7 * mse_loss(pred, target) + 0.3 * l1_loss(pred, target)
-    
-    batch_size = pred.shape[0]
-    if batch_size > 1:
-        # Calculate differences between consecutive items
-        diffs = pred[1:] - pred[:-1]
-        
-        # Different penalties based on climate mode
-        if climate_mode == "warming":
-            # Strongly penalize negative temperature trends
-            if temp_indices is not None:
-                temp_diffs = diffs[:, temp_indices]
-                temp_neg_penalty = torch.mean(torch.relu(-temp_diffs)) * 0.3
-                base_loss = base_loss + temp_neg_penalty
-                
-            # Rainfall can be more variable
-            if rainfall_indices is not None:
-                rainfall_diffs = diffs[:, rainfall_indices]
-                rainfall_var_penalty = torch.mean(torch.abs(rainfall_diffs)) * 0.1
-                base_loss = base_loss + rainfall_var_penalty
-                
-        elif climate_mode == "extreme":
-            # Penalize stability (encourage larger changes)
-            stability_penalty = torch.mean(torch.exp(-torch.abs(diffs) * 5)) * 0.2
-            base_loss = base_loss + stability_penalty
-        else:
-            # Standard mode - mild penalties for negative trends
-            neg_trend_penalty = torch.mean(torch.relu(-diffs)) * 0.1
-            base_loss = base_loss + neg_trend_penalty
-    
-    return base_loss
 
 def ensure_directory_exists(directory):
     """Ensure the directory exists, create if necessary."""
@@ -204,96 +106,14 @@ def safe_save_model(model, file_path):
             print(f"Failed to save model to fallback location: {e2}")
             return False
 
-def create_climate_context(year, climate_mode="standard"):
-    """
-    Create climate context features that encode climate-relevant information
-    
-    Args:
-        year: the year for which to create context
-        climate_mode: type of climate scenario (standard, warming, extreme)
-    
-    Returns:
-        torch.Tensor: climate context features
-    """
-    # Base year for reference (e.g., pre-industrial or start of data)
-    base_year = 1980
-    years_since_base = year - base_year
-    
-    # CO2 level approximation (simplified)
-    co2_base = 340  # Approximate CO2 level in 1980
-    co2_annual_increase = 2.0  # Approximate annual increase
-    
-    # Create context features
-    context = torch.zeros(12)
-    
-    # Years since base (normalized)
-    context[0] = years_since_base / 100.0
-    
-    # CO2 trend - accelerating for warming scenario
-    if climate_mode == "warming":
-        context[1] = (co2_base + co2_annual_increase * years_since_base * 1.1) / 500.0
-    elif climate_mode == "extreme":
-        context[1] = (co2_base + co2_annual_increase * years_since_base * 1.2) / 500.0
-    else:
-        context[1] = (co2_base + co2_annual_increase * years_since_base) / 500.0
-    
-    # Climate variability factor - increasing in later years for extreme scenario
-    if climate_mode == "extreme":
-        context[2] = 0.5 + (years_since_base / 80.0) * 0.5
-    else:
-        context[2] = 0.3 + (years_since_base / 100.0) * 0.3
-    
-    # Seasonal and cyclic factors
-    context[3] = np.sin(years_since_base * 0.5) * 0.2
-    context[4] = np.cos(years_since_base * 0.3) * 0.2
-    
-    # Long-term climate oscillation approximation
-    context[5] = np.sin(years_since_base * 0.1) * 0.3
-    
-    # Temperature amplification factor
-    if climate_mode == "warming":
-        context[6] = min(1.0, 0.5 + years_since_base / 60.0)
-    elif climate_mode == "extreme":
-        context[6] = min(1.2, 0.5 + years_since_base / 50.0)
-    else:
-        context[6] = min(0.8, 0.3 + years_since_base / 80.0)
-    
-    # Rainfall pattern shift factor
-    context[7] = 0.3 + (years_since_base / 90.0) * 0.4
-    
-    # Random factors to represent unpredictable elements
-    context[8] = np.random.normal(0, 0.1)
-    context[9] = np.random.normal(0, 0.1)
-    
-    # Autocorrelation approximation
-    context[10] = 0.6 + (years_since_base / 200.0) * 0.2
-    
-    # Extreme event probability - higher in extreme scenario
-    if climate_mode == "extreme":
-        context[11] = 0.3 + (years_since_base / 50.0) * 0.4
-    else:
-        context[11] = 0.1 + (years_since_base / 100.0) * 0.2
-    
-    return context
-
-def predict_future(embeddings, target_year, climate_mode="warming", temp_indices=None, rainfall_indices=None):
-    """
-    Predict future embeddings with climate awareness
-    
-    Args:
-        embeddings: historical embeddings dictionary
-        target_year: year up to which to predict
-        climate_mode: climate scenario type (standard, warming, extreme)
-        temp_indices: indices corresponding to temperature data
-        rainfall_indices: indices corresponding to rainfall data
-    """
+def predict_future(embeddings, target_year, context_data=None):
     years = list(embeddings.keys())
     current_year = max(years)
 
     # Create output directory if it doesn't exist
     model_dir = os.path.join(os.getcwd(), "backend/models")
     ensure_directory_exists(model_dir)
-    model_path = os.path.join(model_dir, f"climate_{climate_mode}_prediction_model.pth")
+    model_path = os.path.join(model_dir, "advanced_prediction_model.pth")
     
     # Also ensure the graph_embeddings directory exists
     embeddings_dir = os.path.join(os.getcwd(), "backend/data/graph_embeddings")
@@ -313,15 +133,35 @@ def predict_future(embeddings, target_year, climate_mode="warming", temp_indices
 
     input_dim = train_x.shape[-1]
     
-    # Create climate-aware model
-    model = ClimateAwarePredictionModel(input_dim, climate_mode=climate_mode)
+    # Advanced model
+    model = AdvancedPredictionModel(input_dim)
     optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
     
-    # Prepare context data with climate information
-    context_data = []
-    for year in years[:-10]:
-        context = create_climate_context(year + 10, climate_mode)
-        context_data.append(context.unsqueeze(0))
+    # Sophisticated loss function
+    mse_loss = nn.MSELoss()
+    l1_loss = nn.L1Loss()
+    def combined_loss(pred, target):
+        # Reshape target to match prediction
+        target = target.reshape(pred.shape)
+        base_loss =  0.8 * mse_loss(pred, target) + 0.2 * l1_loss(pred, target)
+        batch_size = pred.shape[0]
+        if batch_size > 1:
+        # Calculate differences between consecutive items in batch
+            diffs = pred[1:] - pred[:-1]
+        
+        # Penalize negative trends (encourage positive trends)
+            neg_trend_penalty = torch.mean(torch.relu(-diffs))
+        
+        # Add to base loss
+            return base_loss + 0.2 * neg_trend_penalty
+        else:
+            return base_loss
+    # Prepare context data
+    if context_data is None:
+        context_data = [torch.randn(1, 10) for _ in range(num_samples)]
+    else:
+        # Ensure context data matches batch size
+        context_data = context_data[:num_samples]
     
     # Extended training
     epochs = 1000
@@ -338,8 +178,7 @@ def predict_future(embeddings, target_year, climate_mode="warming", temp_indices
         predictions = model(train_x, context)
         predictions = predictions.reshape(num_samples, num_nodes, features)
         
-        # Use climate-aware loss
-        loss = climate_aware_loss(predictions, train_y, temp_indices, rainfall_indices, climate_mode)
+        loss = combined_loss(predictions, train_y)
         
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -357,9 +196,9 @@ def predict_future(embeddings, target_year, climate_mode="warming", temp_indices
             if not saved:
                 print("Warning: Could not save best model. Continuing training...")
 
-    print(f"Climate-aware training completed for {climate_mode} scenario")
+    print("Advanced training completed")
 
-    # Check if model file exists before loading
+
     if os.path.exists(model_path):
         try:
             model.load_state_dict(torch.load(model_path))
@@ -374,16 +213,7 @@ def predict_future(embeddings, target_year, climate_mode="warming", temp_indices
 
     future_embeddings = embeddings.copy()
     last_prediction = None
-    
-    # Different min_allowed_change based on climate mode
-    if climate_mode == "warming":
-        # For warming scenario, we limit decreases even more for temperature
-        min_allowed_change = -0.005
-    elif climate_mode == "extreme":
-        # For extreme scenario, we allow more variability
-        min_allowed_change = -0.02
-    else:
-        min_allowed_change = -0.01
+    min_allowed_change = -0.01
 
     for year in range(current_year + 1, target_year + 1):
         past_10_years = [future_embeddings[y] for y in range(year - 10, year)]
@@ -391,60 +221,39 @@ def predict_future(embeddings, target_year, climate_mode="warming", temp_indices
         
         # Use the same reshaping logic as in training
         _, seq_len, nodes, feat = input_seq.shape
-        input_seq = input_seq.reshape(1, seq_len, -1)
+        input_seq = input_seq.reshape(1, seq_len, -1)  # Reshape consistently with training
         
-        # Use climate-aware context for prediction
-        context = create_climate_context(year, climate_mode).unsqueeze(0)
+        # Use a context feature for prediction
+        context = torch.randn(1, 10)
 
         with torch.no_grad():
             predicted = model(input_seq, context)
             # Reshape the output back to the original dimensions
             predicted = predicted.reshape(num_nodes, features)
-            
         if last_prediction is not None:
-            # Apply climate-specific constraints
+            # Check each feature and limit drops
             change = predicted - last_prediction
+            excessive_drops = (change < min_allowed_change)
             
-            if climate_mode == "warming" and temp_indices is not None:
-                # For temperature indices in warming scenario, ensure upward trend
-                temp_changes = change[temp_indices]
-                excessive_temp_drops = (temp_changes < min_allowed_change)
-                if excessive_temp_drops.any():
-                    predicted[temp_indices][excessive_temp_drops] = (
-                        last_prediction[temp_indices][excessive_temp_drops] + min_allowed_change
-                    )
-                    
-            elif climate_mode == "extreme":
-                # For extreme scenario, allow more variability but ensure overall trend
-                excessive_drops = (change < min_allowed_change * 2)
-                if excessive_drops.any():
-                    predicted[excessive_drops] = last_prediction[excessive_drops] + min_allowed_change * 2
-                    
-                # Add occasional extreme values
-                if np.random.random() < 0.1:  # 10% chance of extreme value
-                    extreme_idx = np.random.randint(0, num_nodes)
-                    predicted[extreme_idx] = predicted[extreme_idx] * (1 + np.random.uniform(0.1, 0.3))
-            else:
-                # Standard mode - similar to original
-                excessive_drops = (change < min_allowed_change)
-                if excessive_drops.any():
-                    predicted[excessive_drops] = last_prediction[excessive_drops] + min_allowed_change
+            # Where drops are excessive, limit them
+            if excessive_drops.any():
+                predicted[excessive_drops] = last_prediction[excessive_drops] + min_allowed_change
         
         last_prediction = predicted.clone()
         future_embeddings[year] = predicted
         
         # Save the prediction with error handling
-        embedding_file = os.path.join(embeddings_dir, f"embeddings_{year}_{climate_mode}.pt")
+        embedding_file = os.path.join(embeddings_dir, f"embeddings_{year}.pt")
         try:
             torch.save(predicted, embedding_file)
-            print(f"Predictions for {year} ({climate_mode} scenario) saved to {embedding_file}")
+            print(f"Predictions for {year} saved to {embedding_file}")
         except Exception as e:
             print(f"Error saving prediction for year {year}: {e}")
             # Try alternative location
             try:
-                alt_file = f"embeddings_{year}_{climate_mode}.pt"
+                alt_file = f"embeddings_{year}.pt"
                 torch.save(predicted, alt_file)
-                print(f"Predictions saved to alternative location: {alt_file}")
+                print(f"Predictions for {year} saved to alternative location: {alt_file}")
             except Exception as e2:
                 print(f"Failed to save predictions for year {year}: {e2}")
 
@@ -479,39 +288,8 @@ if __name__ == "__main__":
                 print("Too many missing embeddings. Please check your data.")
                 sys.exit(1)
         
-        # Get climate mode and target year
-        print("Select climate scenario:")
-        print("1. Standard (moderate predictions)")
-        print("2. Warming (stronger warming trend)")
-        print("3. Extreme (more variability and extreme events)")
-        choice = input("Enter choice (1-3): ")
-        
-        if choice == "2":
-            climate_mode = "warming"
-        elif choice == "3":
-            climate_mode = "extreme"
-        else:
-            climate_mode = "standard"
-            
         target_year = int(input("Enter the target year for predictions: "))
-        
-        # Identify temperature and rainfall indices
-        print("If you know the indices for temperature and rainfall data, enter them now.")
-        print("Otherwise, leave blank for automatic detection.")
-        
-        temp_input = input("Temperature indices (comma-separated, or leave blank): ")
-        rainfall_input = input("Rainfall indices (comma-separated, or leave blank): ")
-        
-        temp_indices = [int(x) for x in temp_input.split(',')] if temp_input else None
-        rainfall_indices = [int(x) for x in rainfall_input.split(',')] if rainfall_input else None
-        
-        # If no indices provided, try to detect them based on patterns
-        if temp_indices is None or rainfall_indices is None:
-            print("Attempting to detect data types from patterns...")
-            # This is a placeholder - a real implementation would analyze the data
-            # to identify temperature and rainfall patterns
-            
-        predict_future(embeddings, target_year, climate_mode, temp_indices, rainfall_indices)
+        predict_future(embeddings, target_year)
         
     except Exception as e:
         print(f"Error in main execution: {e}")

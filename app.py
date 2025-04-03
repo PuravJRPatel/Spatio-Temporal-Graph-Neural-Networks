@@ -202,8 +202,8 @@ def create_synthetic_projection(coordinates_df, climate_df, year):
 # Extract data from embedding
 def extract_from_embedding(embedding, coordinates_df, climate_df):
     # Get historical min/max for normalization
-    temp_min, temp_max = 0, 40
-    rain_min, rain_max = 0, 46
+    temp_min, temp_max = 17, 34
+    rain_min, rain_max = 0, 20
     
     # Process embedding based on its type
     features = None

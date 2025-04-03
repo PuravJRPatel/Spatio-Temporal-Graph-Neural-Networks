@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GATConv
 import os
 
-class GCN(nn.Module):
+class GAT(nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
-        super(GCN, self).__init__()
-        self.conv1 = GCNConv(in_channels, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, out_channels)
+        super(GAT, self).__init__()
+        self.conv1 = GATConv(in_channels, hidden_channels)
+        self.conv2 = GATConv(hidden_channels, out_channels)
         
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index)
@@ -25,7 +25,7 @@ def load_graph(year, graph_dir):
     return torch.load(graph_path)
 
 def train_model(graph, hidden_dim, output_dim, num_epochs, learning_rate):
-    model = GCN(in_channels=graph.x.shape[1], hidden_channels=hidden_dim, out_channels=output_dim)
+    model = GAT(in_channels=graph.x.shape[1], hidden_channels=hidden_dim, out_channels=output_dim)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     train_losses = []
@@ -81,13 +81,13 @@ def main():
     learning_rate = 0.001
 
     for year in range(1980, 2024):
-        print(f"\nTraining GCN for year {year}")
+        print(f"\nTraining GAT for year {year}")
         graph = load_graph(year, graph_dir)
         _, output, train_losses, val_losses = train_model(graph, hidden_dim, output_dim, num_epochs, learning_rate)
         save_embeddings(output, year, embeddings_dir)
 
         
-    print("GCN Training Completed")
+    print("GAT Training Completed")
 
 if __name__ == "__main__":
     main()
