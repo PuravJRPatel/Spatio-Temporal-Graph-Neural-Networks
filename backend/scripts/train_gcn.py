@@ -67,16 +67,7 @@ def save_embeddings(output, year, embeddings_dir):
     torch.save(output, os.path.join(embeddings_dir, f"embeddings_{year}.pt"))
     print(f"Embeddings saved for {year}")
 
-def plot_loss(train_losses, val_losses, year):
-    plt.figure(figsize=(8,5))
-    plt.plot(train_losses, label='Training Loss', color='blue')
-    plt.plot(val_losses, label='Validation Loss', color='red')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title(f'Loss Curve for Year {year}')
-    plt.legend()
-    plt.savefig(f"backend/data/loss_plots/loss_curve_{year}.png")
-    plt.show()
+
 
 def main():
     graph_dir = "backend/data/processed_graphs"
@@ -84,7 +75,7 @@ def main():
     loss_plot_dir = "backend/data/loss_plots"
     os.makedirs(loss_plot_dir, exist_ok=True)
 
-    hidden_dim = 64
+    hidden_dim = 128
     output_dim = 2
     num_epochs = 1000
     learning_rate = 0.001
@@ -95,9 +86,7 @@ def main():
         _, output, train_losses, val_losses = train_model(graph, hidden_dim, output_dim, num_epochs, learning_rate)
         save_embeddings(output, year, embeddings_dir)
 
-        # Plot loss curve
-        plot_loss(train_losses, val_losses, year)
-
+        
     print("GCN Training Completed")
 
 if __name__ == "__main__":

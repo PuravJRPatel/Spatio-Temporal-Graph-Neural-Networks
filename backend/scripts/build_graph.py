@@ -8,18 +8,8 @@ import os
 def load_data(filepath):
     return pd.read_csv(filepath)
 
-def normalize_features(df, feature_columns):
-    """Min-Max normalize the specified columns."""
-    df_norm = df.copy()
-    for col in feature_columns:
-        min_val = df[col].min()
-        max_val = df[col].max()
-        df_norm[col] = (df[col] - min_val) / (max_val - min_val) if max_val > min_val else 0
-    return df_norm
 
 def build_graph(df_year, k=8):
-    # Normalize rainfall and temperature
-    df_year = normalize_features(df_year, ['rainfall', 'temperature'])
 
     node_features = torch.tensor(df_year[['rainfall', 'temperature']].values, dtype=torch.float)
     node_positions = df_year[['latitude', 'longitude']].values
