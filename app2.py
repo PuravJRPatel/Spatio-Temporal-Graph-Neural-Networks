@@ -22,7 +22,7 @@ BASE_PATHS = {
     "climate_data": ["backend/data/Processed Data/climate_data.csv", 
                      "backend/data/graph_embeddings/Processed Data/climate_data.csv",
                      "graph_embeddings/Processed Data/climate_data.csv"],
-    "shapefiles": ["backend/data/shapefiles", "shapefiles", "data/shapefiles"]
+    "shapefiles": ["backend/data/India Shape", "shapefiles", "data/India Shape"]
 }
 
 # Helper function to find file with dynamic path resolution
@@ -84,7 +84,7 @@ def load_climate_data():
 def load_india_states():
     # Try to find shapefile in various locations
     shapefile_path = None
-    shapefile_names = ["india_states.shp", "india_admin.shp", "india.shp"]
+    shapefile_names = ["india_st.shp", "india_admin.shp", "india.shp"]
     
     for base_path in BASE_PATHS["shapefiles"]:
         for name in shapefile_names:
@@ -328,15 +328,15 @@ def extract_from_embedding(embedding, coordinates_df, climate_df):
         temperature_embedding = features[:, 1]
     else:
         rainfall_embedding = features[:, 0]
-        temperature_embedding = features[:, 0] * 1.2  # Add variation
+        temperature_embedding = features[:, 0] * 1.2  
     
-    # Normalize to realistic ranges
+
     rainfall = rain_min + (rain_max - rain_min) * (rainfall_embedding - np.min(rainfall_embedding)) / (np.max(rainfall_embedding) - np.min(rainfall_embedding) + 1e-10)
     temperature = temp_min + (temp_max - temp_min) * (temperature_embedding - np.min(temperature_embedding)) / (np.max(temperature_embedding) - np.min(temperature_embedding) + 1e-10)
     
     return rainfall, temperature
 
-# NEW FUNCTION: Calculate regional (state-wise) averages
+
 def calculate_regional_averages(heatmap_data, india_states):
     # Create points from lat/lon
     points = [Point(lon, lat) for lon, lat in zip(heatmap_data['lons'], heatmap_data['lats'])]
@@ -381,7 +381,7 @@ def plot_heatmap(data, metric, title, india_states=None):
         vmin, vmax = np.min(values) * 0.9, np.max(values) * 1.1
         cb_label = 'Rainfall (mm)'
     else:
-        cmap = LinearSegmentedColormap.from_list('temp_cmap', ['#ffffcc', '#e31a1c'])
+        cmap = LinearSegmentedColormap.from_list('temp_cmap', ['#ffffcc', '#730707'])
         vmin, vmax = np.min(values) * 0.9, np.max(values) * 1.1
         cb_label = 'Temperature (°C)'
     
@@ -528,7 +528,6 @@ def main():
             step=1
         )
         
-        # Show state boundaries option
         show_states = st.sidebar.checkbox("Show State Boundaries", value=True)
         
         # Load embedding and process data
@@ -555,7 +554,7 @@ def main():
                 f"{climate_metrics['current_temp_avg']:.2f}°C",
                 f"{climate_metrics.get('temp_anomaly', 0):.2f}°C vs 10yr avg" 
                 if climate_metrics.get('temp_anomaly') is not None else None,
-                delta_color="inverse"  # Higher temp is bad, so inverse colors
+                delta_color="inverse" 
             )
         
         with metric_cols[1]:
@@ -566,15 +565,6 @@ def main():
                 if climate_metrics.get('rain_anomaly_pct') is not None else None
             )
         
-        with metric_cols[2]:
-            if climate_metrics.get('extreme_heat_pct') is not None:
-                st.metric(
-                    "Areas with Extreme Heat", 
-                    f"{climate_metrics['extreme_heat_pct']:.1f}%",
-                    delta=None
-                )
-            else:
-                st.metric("Areas with Extreme Heat", "N/A")
         
         
         
