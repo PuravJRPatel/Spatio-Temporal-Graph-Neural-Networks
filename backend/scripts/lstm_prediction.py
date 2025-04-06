@@ -16,7 +16,7 @@ class AdvancedPredictionModel(nn.Module):
         self.long_term_lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers, 
                                        batch_first=True, dropout=0.3)
         
-        self.trend_magnitude = nn.Parameter(torch.tensor(0.3))
+        self.trend_magnitude = nn.Parameter(torch.tensor(0.4))
         self.variation_scale = nn.Parameter(torch.tensor(0.05))
         self.upward_bias = nn.Parameter(torch.tensor(0.1))
         self.smoothing_factor = nn.Parameter(torch.tensor(0.7))

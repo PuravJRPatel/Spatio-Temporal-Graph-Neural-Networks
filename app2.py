@@ -16,7 +16,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Define the base paths based on the project structure from the image
 BASE_PATHS = {
     "embeddings": ["backend/data/graph_embeddings", "graph_embeddings"],
     "climate_data": ["backend/data/Processed Data/climate_data.csv", 
@@ -107,8 +106,7 @@ def load_india_states():
 
 # Create dummy India state boundaries if shapefile not found
 def create_dummy_states():
-    # Define some major Indian states with approximate bounding boxes
-    # Format: [name, [min_lon, min_lat, max_lon, max_lat]]
+    
     dummy_states = [
         ["Maharashtra", [72, 16, 80, 22]],
         ["Gujarat", [68, 20, 74, 24]],
@@ -193,7 +191,6 @@ def process_climate_data(embedding, coordinates_df, climate_df, year):
     lats = coordinates_df['latitude'].values
     lons = coordinates_df['longitude'].values
     
-    # For historical years (<=2023), try to use actual data
     if year <= 2023:
         year_data = climate_df[climate_df['year'] == year]
         if not year_data.empty:
@@ -282,7 +279,7 @@ def create_synthetic_projection(coordinates_df, climate_df, year):
 # Extract data from embedding
 def extract_from_embedding(embedding, coordinates_df, climate_df):
     # Get historical min/max for normalization
-    temp_min, temp_max = 17, 34
+    temp_min, temp_max = 21, 34
     rain_min, rain_max = 0, 20
     
     # Process embedding based on its type
@@ -412,6 +409,7 @@ def plot_heatmap(data, metric, title, india_states=None):
     ax.grid(True, linestyle='--', alpha=0.3)
     
     return fig
+
 
 # NEW FUNCTION: Calculate climate metrics
 def calculate_climate_metrics(climate_df, current_year, heatmap_data):
@@ -612,8 +610,8 @@ def main():
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Top 5 Hottest States")
-                hottest_states = regional_stats.sort_values('temperature_mean', ascending=False).head(5)
+                st.subheader("Top 10 Hottest States")
+                hottest_states = regional_stats.sort_values('temperature_mean', ascending=False).head(10)
                 
                 for i, row in hottest_states.iterrows():
                     state_name = row[regional_stats.columns[0]]  # First column contains state names
@@ -621,8 +619,8 @@ def main():
                     st.markdown(f"**{state_name}**: {temp:.2f}°C")
             
             with col2:
-                st.subheader("Top 5 Wettest States")
-                wettest_states = regional_stats.sort_values('rainfall_mean', ascending=False).head(5)
+                st.subheader("Top 10 Wettest States")
+                wettest_states = regional_stats.sort_values('rainfall_mean', ascending=False).head(10)
                 
                 for i, row in wettest_states.iterrows():
                     state_name = row[regional_stats.columns[0]]  # First column contains state names
